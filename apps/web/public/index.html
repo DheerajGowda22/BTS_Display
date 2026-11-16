@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bengaluru Hiring Pulse · Upcruit.ai</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230E1626%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27%23E8673A%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a booth scoreboard. Dark single-theme for a bright expo hall;
+   header + KPI strip, a 3x2 grid of live tiles, and an insight ticker. */
+:root{
+  --ink:#0E1626; --panel:#152036; --line:#25334F; --text:#EEF2F8; --muted:#93A1BA;
+  --seek:#E8673A; --hr:#2A9DB4; --gold:#F2C14E;
+  --ai1:#0F5866; --ai2:#1C7C8F; --ai3:#2A9DB4; --ai4:#86CFDD;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--text);font-family:var(--body);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+a{color:var(--text)}
+.view{display:none;min-height:100%}
+.view.on{display:flex}
+.muted{color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72em;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--seek);box-shadow:0 0 0 0 rgba(232,103,58,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(232,103,58,.55)}70%{box-shadow:0 0 0 10px rgba(232,103,58,0)}100%{box-shadow:0 0 0 0 rgba(232,103,58,0)}}
+@media (prefers-reduced-motion:reduce){.live-dot{animation:none}.fade{transition:none!important}}
+.iconbtn{background:transparent;border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--muted);font-size:13px}
+.iconbtn:hover{color:var(--text);border-color:var(--muted)}
+
+/* ---------- DISPLAY (TV) ---------- */
+#v-display{flex-direction:column;height:100%;padding:clamp(14px,1.6vw,32px);gap:clamp(10px,1.1vw,20px);font-size:clamp(12px,min(0.95vw,1.75vh),22px)}
+.d-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand .logo{font-family:var(--display);font-weight:800;font-size:1.25em;letter-spacing:-.01em}
+.brand .logo b{color:var(--seek)}
+.brand h1{font-size:2.3em;font-weight:800;letter-spacing:-.02em;line-height:1}
+.d-head .right{display:flex;align-items:center;gap:10px}
+.clock{font-family:var(--mono);color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(8px,.9vw,18px)}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.7em 1em;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.kpi .lab{color:var(--muted);font-size:.95em}
+.kpi .num{font-family:var(--display);font-weight:700;font-size:2.2em;line-height:1}
+.kpi.seek{border-left:4px solid var(--seek)} .kpi.hr{border-left:4px solid var(--hr)}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;gap:clamp(8px,.9vw,18px)}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1em 1.15em;display:flex;flex-direction:column;gap:.7em;min-height:0;overflow:hidden}
+.tile h2{font-size:1.25em;font-weight:700;letter-spacing:-.01em}
+.tile .sub{color:var(--muted);font-size:.85em;margin-top:2px}
+.tile .body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-start;justify-content:safe center;gap:.55em;overflow:hidden}
+.who{display:inline-block;width:.7em;height:.7em;border-radius:3px;margin-right:6px;vertical-align:baseline}
+.bar-row{display:grid;grid-template-columns:minmax(7.5em,38%) 1fr 3.2em;align-items:center;gap:.7em}
+.bar-row .l{font-size:.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-row .v{text-align:right;font-weight:600}
+.track{height:.8em;background:rgba(255,255,255,.04);border-radius:0 4px 4px 0;position:relative}
+.fill{height:100%;border-radius:0 4px 4px 0;transition:width .8s cubic-bezier(.2,.8,.2,1);min-width:2px}
+.fill.seek{background:var(--seek)} .fill.hr{background:var(--hr)} .fill.gold{background:var(--gold)}
+.pair{display:grid;grid-template-columns:minmax(7em,34%) 1fr;gap:.25em .7em;align-items:center}
+.pair .l{grid-row:span 2;font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pair .mini{display:grid;grid-template-columns:1fr 2.8em;gap:.5em;align-items:center}
+.pair .mini .track{height:.55em}
+.pair .mini span{text-align:right;font-size:.8em;color:var(--muted)}
+.legend{display:flex;gap:1.2em;font-size:.82em;color:var(--muted)}
+.lb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45em}
+.lb li{display:grid;grid-template-columns:2em 1fr auto;align-items:center;gap:.6em;padding:.45em .7em;border-radius:10px;background:rgba(255,255,255,.03)}
+.lb li:first-child{background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.35)}
+.lb .rk{font-family:var(--display);font-weight:800;color:var(--muted);text-align:center}
+.lb li:first-child .rk{color:var(--gold)}
+.lb .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb .nm small{display:block;font-weight:400;color:var(--muted);font-size:.8em}
+.lb .sc{font-family:var(--display);font-weight:800;font-size:1.5em}
+.hero{display:flex;align-items:baseline;gap:.4em}
+.hero .big{font-family:var(--display);font-weight:800;font-size:3.3em;line-height:.9;color:var(--seek)}
+.hero .txt{font-size:1.05em;line-height:1.3}
+.stack{display:flex;height:1.4em;border-radius:6px;overflow:hidden;gap:2px;background:var(--panel)}
+.stack div{height:100%;transition:flex-grow .8s}
+.stack-leg{display:grid;grid-template-columns:1fr 1fr;gap:.3em 1em;font-size:.85em}
+.stack-leg span b{font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:1em;border:1px dashed var(--line);border-radius:10px;font-size:.95em}
+.divider{height:1px;background:var(--line);margin:.3em 0}
+.ticker{display:flex;align-items:center;gap:1em;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.45em .6em .45em 1.1em}
+.ticker .msg{flex:1;font-size:1.2em;font-weight:500;transition:opacity .5s}
+.ticker .cta{color:var(--muted);white-space:nowrap}
+.banner{position:fixed;left:50%;top:10px;transform:translateX(-50%);background:var(--gold);color:#1a1300;font-weight:700;padding:6px 14px;border-radius:999px;font-size:13px;z-index:9;display:none}
+.note{position:fixed;left:50%;transform:translateX(-50%);top:48px;max-width:520px;background:#2b1c14;border:1px solid var(--seek);border-radius:10px;padding:10px 14px;font-size:14px;display:none;z-index:9}
+@media (max-width:1000px){
+  #v-display{height:auto;font-size:14px}
+  .grid{grid-template-columns:1fr 1fr;grid-template-rows:none}
+  .kpis{grid-template-columns:1fr 1fr}
+  .tile{min-height:260px}
+}
+@media (max-height:600px){#v-display{height:auto}.grid{grid-template-rows:none}.tile{min-height:300px}}
+@media (max-width:620px){.grid{grid-template-columns:1fr}.brand h1{font-size:1.7em}}
+
+/* ---------- KIOSK (tablet) ---------- */
+#v-kiosk{flex-direction:column;height:100%;padding:clamp(18px,3vw,48px);gap:20px;font-size:clamp(16px,1.6vw,24px)}
+.k-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.k-main{flex:1;display:flex;flex-direction:column;justify-content:center;max-width:980px;width:100%;margin:0 auto;gap:1.1em}
+.k-main h2{font-size:2.2em;font-weight:800;letter-spacing:-.02em;line-height:1.08}
+.k-main .lead{color:var(--muted);font-size:1.05em;margin:0}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7em}
+.opt{background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:1em 1.2em;text-align:left;font-size:1.05em;font-weight:500;min-height:3.6em;transition:border-color .15s,transform .1s}
+.opt:hover{border-color:var(--muted)} .opt:active{transform:scale(.98)}
+.big2{grid-template-columns:1fr 1fr}
+.big2 .opt{min-height:9em;font-size:1.4em;display:flex;flex-direction:column;justify-content:flex-end;gap:.3em}
+.big2 .opt small{font-size:.6em;color:var(--muted);font-weight:400}
+.big2 .opt.seek{border-color:var(--seek)} .big2 .opt.hr{border-color:var(--hr)}
+.steps{display:flex;gap:8px}
+.steps i{width:38px;height:6px;border-radius:3px;background:var(--line)}
+.steps i.on{background:var(--text)}
+.k-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--muted);font-size:.72em}
+.linkbtn{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:1em;padding:0}
+.thanks .big{font-family:var(--display);font-size:3em;font-weight:800;line-height:1}
+.err{color:#FFB199}
+@media (max-width:600px){.big2{grid-template-columns:1fr}.big2 .opt{min-height:5em}}
+
+/* ---------- STAFF + HOME ---------- */
+#v-staff,#v-home{flex-direction:column;align-items:center;padding:32px 18px 60px}
+.wrap{width:100%;max-width:880px;display:flex;flex-direction:column;gap:22px}
+.wrap h1{font-size:2.2em;font-weight:800;letter-spacing:-.02em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:12px}
+.card h2{font-size:1.2em}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.links a{display:flex;flex-direction:column;gap:6px;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;transition:border-color .15s}
+.links a:hover{border-color:var(--muted)}
+.links a b{font-family:var(--display);font-size:1.15em}
+.links a span{color:var(--muted);font-size:.9em;line-height:1.4}
+ol.setup{margin:0;padding-left:1.2em;line-height:1.6;max-width:68ch}
+form.row{display:grid;grid-template-columns:1.3fr 1.3fr .7fr auto;gap:10px;align-items:end}
+label{display:flex;flex-direction:column;gap:6px;font-size:.85em;color:var(--muted)}
+input,select{background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px 12px;font:inherit;font-size:15px}
+.btn{background:var(--seek);border:none;color:#1b0d06;font-weight:700;border-radius:8px;padding:11px 18px}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:500}
+.btn.danger{background:#C2412D;color:#fff}
+table{width:100%;border-collapse:collapse;font-size:.95em}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:500;font-size:.85em}
+td.n{text-align:right}
+.status{font-size:.9em}
+@media (max-width:640px){form.row{grid-template-columns:1fr 1fr}}
+.opt.sel{border-color:var(--text);background:#21304F}
+.opt.sel::after{content:" \2713";color:var(--gold);font-weight:700}
+.opt:disabled{opacity:.38;cursor:default}
+.k-actions{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.k-actions .btn{font-size:1em;padding:.7em 1.6em;border-radius:12px}
+.k-actions .btn:disabled{opacity:.4;cursor:default}
+.hint{color:var(--gold);font-size:.85em;margin:0}
+.gapline{display:flex;align-items:baseline;gap:.5em;flex-wrap:wrap}
+.gapline .big{font-family:var(--display);font-weight:800;font-size:2.6em;line-height:1;color:var(--text)}
+
+.kpi.match{border-left:4px solid var(--gold)}
+.kpi .num small{font-size:.45em;color:var(--muted);font-weight:500;margin-left:.3em}
+.joinqr{width:4.8em;height:4.8em;background:#fff;border-radius:8px;padding:.25em;flex:none}
+.ticker .join{display:flex;align-items:center;gap:.9em;text-align:right}
+.ticker .join b{display:block;font-family:var(--display);font-size:1.15em;color:var(--text)}
+.ticker .join span{color:var(--muted);font-size:.9em}
+.matches{display:flex;flex-direction:column;gap:.7em}
+.job{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:.9em 1.1em;display:grid;grid-template-columns:1fr auto;gap:1em;align-items:center}
+.job h3{font-size:1.1em;font-weight:700}
+.job .meta{color:var(--muted);font-size:.8em;margin-top:.25em;line-height:1.4}
+.job .tools{font-size:.78em;margin-top:.35em;color:var(--text)}
+.job .act{display:flex;align-items:center;gap:.9em}
+.job .qr{width:6.5em;height:6.5em;background:#fff;border-radius:8px;padding:.2em}
+.job a.btn{text-decoration:none;font-size:.8em;white-space:nowrap}
+.matchhead{display:flex;align-items:baseline;gap:.5em;flex-wrap:wrap}
+.matchhead .big{font-family:var(--display);font-weight:800;font-size:2.4em;color:var(--gold);line-height:1}
+.count-pill{display:inline-flex;align-items:center;gap:.5em;background:rgba(242,193,78,.12);border:1px solid rgba(242,193,78,.4);color:var(--text);border-radius:999px;padding:.35em .9em;font-size:.85em;width:fit-content}
+.count-pill b{color:var(--gold);font-family:var(--display)}
+.warn{color:#FFD08A;font-size:.85em;margin:0;padding-left:1.1em}
+.pinrow{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+@media (max-width:700px){.job{grid-template-columns:1fr}.job .qr{display:none}.ticker .join{display:none}}
+#v-kiosk.phone{height:auto;min-height:100%}
+#v-kiosk.phone .k-main{justify-content:flex-start;padding-top:1em}
+#v-kiosk.phone .k-main h2{font-size:1.7em}
+#v-kiosk.phone .steps i{width:18px}
+#v-kiosk.phone .k-top .logo span{display:none}
+.cform{display:grid;grid-template-columns:1fr 1fr;gap:.8em 1em;max-width:900px}
+.cform .full{grid-column:1/-1}
+.cform label{font-size:.75em;color:var(--muted);gap:.4em}
+.cform input[type=text],.cform input[type=email],.cform input[type=tel]{font-size:1.1em;padding:.75em .9em;border-radius:12px;border:2px solid var(--line);background:var(--panel)}
+.cform input:focus{border-color:var(--muted)}
+.cform input.bad{border-color:#E0694F}
+.cform .ferr{color:#FFB199;font-size:.9em;min-height:1.2em}
+.phonebox{display:flex;align-items:stretch}
+.phonebox span{display:flex;align-items:center;padding:0 .8em;background:var(--line);border-radius:12px 0 0 12px;font-size:1.05em;color:var(--muted)}
+.phonebox input{border-radius:0 12px 12px 0!important;flex:1;min-width:0}
+.check{display:flex!important;flex-direction:row!important;align-items:flex-start;gap:.7em!important;font-size:.8em!important;color:var(--text)!important;line-height:1.4;cursor:pointer}
+.check input{width:1.4em;height:1.4em;margin-top:.1em;accent-color:var(--seek);flex:none}
+.feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45em}
+.feed li{display:grid;grid-template-columns:1fr auto;gap:.2em .8em;padding:.5em .75em;border-radius:10px;background:rgba(255,255,255,.03);border-left:3px solid var(--gold)}
+.feed .who2{font-weight:600}
+.feed .ago{color:var(--muted);font-size:.8em;text-align:right}
+.feed .jobt{grid-column:1/-1;font-size:.9em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed .jobt b{color:var(--text);font-weight:600}
+@media (max-width:640px){.cform{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="banner" id="demoBanner">SAMPLE DATA · rehearsal mode, nothing is saved</div>
+<div class="note" id="dbNote"></div>
+<!-- HOME -->
+<section class="view" id="v-home" aria-label="Setup">
+  <div class="wrap">
+    <div>
+      <span class="chip"><span class="live-dot"></span>Upcruit.ai · BTS 2026 · BIEC</span>
+      <h1 style="margin-top:12px">Bengaluru Hiring Pulse</h1>
+      <p class="muted" style="max-width:62ch;line-height:1.5">Job seekers enter their contact details, experience and skills and instantly see matching open jobs. HR leaders share the roles and skills they're hiring for and their pain points. The TV shows it all live, without anyone's contact details.</p>
+    </div>
+    <div class="links">
+      <a href="#display"><b>TV display</b><span>Full-screen scoreboard for the booth TV. Updates every few seconds.</span></a>
+      <a href="#kiosk"><b>Booth tablet</b><span>Visitor sign-up and job matches. Clears itself for the next visitor.</span></a>
+      <a href="#join"><b>Visitor phone</b><span>What visitors see after scanning the QR on the TV.</span></a>
+      <a href="#staff"><b>Staff desk</b><span>Upload jobs, see candidates, export, clear test entries. Needs the staff PIN.</span></a>
+      <a href="#demo"><b>Rehearsal preview</b><span>The TV screen filled with sample data. Saves nothing.</span></a>
+    </div>
+    <div class="card">
+      <h2>Booth setup</h2>
+      <ol class="setup">
+        <li>On the <b>Staff desk</b>, upload the jobs Excel file.</li>
+        <li>Open <b>TV display</b> on the laptop driving the TV and press <b>Full screen</b>. Its QR code sends visitors' phones to the sign-up.</li>
+        <li>Open <b>Booth tablet</b> on the tablet, press <b>Full screen</b>, mount it at the front of the booth. Staff leave it with <b>Exit</b>, top right.</li>
+        <li>Before doors open on day 1, press <b>Clear test entries</b> on the Staff desk so rehearsal entries don't count.</li>
+      </ol>
+      <p class="status" id="homeStatus">Checking the connection…</p>
+    </div>
+  </div>
+</section>
+
+<!-- DISPLAY -->
+<section class="view" id="v-display" aria-label="Live hiring pulse display">
+  <header class="d-head">
+    <div class="brand">
+      <span class="logo">Upcruit<b>.ai</b></span>
+      <h1>Bengaluru Hiring Pulse</h1>
+      <span class="chip"><span class="live-dot"></span>Live from BTS 2026</span>
+    </div>
+    <div class="right">
+      <span class="clock" id="clock"></span>
+      <button class="iconbtn" data-fs>Full screen</button>
+      <a class="iconbtn" href="#home" style="text-decoration:none">Setup</a>
+    </div>
+  </header>
+  <div class="kpis">
+    <div class="kpi"><span class="lab">Answers today</span><span class="num" id="kToday">0</span></div>
+    <div class="kpi seek"><span class="lab">Job seekers</span><span class="num" id="kSeek">0</span></div>
+    <div class="kpi hr"><span class="lab">HR leaders</span><span class="num" id="kHr">0</span></div>
+    <div class="kpi match"><span class="lab" id="kMatchLab">Matched to open jobs</span><span class="num" id="kMatch">0</span></div>
+  </div>
+  <main class="grid">
+    <article class="tile"><div><h2>Just matched</h2><div class="sub" id="sFeed">Job seekers matched to open jobs, live</div></div><div class="body" id="tFeed" style="justify-content:flex-start"></div></article>
+    <article class="tile"><div><h2>Top skills job seekers have</h2><div class="sub" id="sHave">Share of job seekers</div></div><div class="body" id="tHave"></div></article>
+    <article class="tile"><div><h2>Skills gap: talent vs demand</h2><div class="legend"><span><i class="who" style="background:var(--seek)"></i>Job seekers who have it</span><span><i class="who" style="background:var(--hr)"></i>HR leaders who need it</span></div></div><div class="body" id="tGap"></div></article>
+    <article class="tile"><div><h2>Experience at the booth</h2><div class="sub" id="sExp">Job seekers by years of experience</div></div><div class="body" id="tExp"></div></article>
+    <article class="tile"><div><h2>Roles HR leaders are hiring</h2><div class="sub" id="sRoles">Share of HR leaders</div></div><div class="body" id="tRoles"></div></article>
+    <article class="tile"><div><h2>HR leaders' biggest pain points</h2><div class="sub" id="sPain">Share of HR leaders</div></div><div class="body" id="tPain"></div></article>
+  </main>
+  <footer class="ticker">
+    <span class="chip">Insight</span>
+    <span class="msg fade" id="tick">Tap the tablet or scan the QR code to find your matching job.</span>
+    <span class="join"><span><b id="joinHead">Find your matching job</b><span>Scan with your phone · takes a minute</span></span><img class="joinqr" id="joinQr" alt="QR code to sign up on your phone"></span>
+  </footer>
+</section>
+
+<!-- KIOSK / PHONE -->
+<section class="view" id="v-kiosk" aria-label="Visitor sign-up">
+  <div class="k-top">
+    <span class="logo" style="font-family:var(--display);font-weight:800;font-size:1.2em">Upcruit<b style="color:var(--seek)">.ai</b> <span class="muted" style="font-weight:500">· Hiring Pulse</span></span>
+    <div style="display:flex;align-items:center;gap:18px">
+      <div class="steps" id="kSteps" aria-hidden="true"></div>
+      <button class="iconbtn" id="kExit">Exit</button>
+      <span id="kExitAsk" style="display:none;align-items:center;gap:8px;font-size:.7em">
+        <span class="muted">Leave the visitor screen?</span>
+        <a class="iconbtn" href="#home" style="text-decoration:none;color:var(--text)">Go to setup</a>
+        <button class="iconbtn" id="kStay">Stay</button>
+      </span>
+    </div>
+  </div>
+  <div class="k-main" id="kMain"></div>
+  <div class="k-foot">
+    <span id="kFootNote">Your contact details are only shared with the Upcruit.ai team. They never appear on the booth screen.</span>
+    <span style="display:flex;gap:14px"><button class="linkbtn" data-fs id="kFs">Full screen</button><button class="linkbtn" id="kRestart">Start over</button></span>
+  </div>
+</section>
+
+<!-- STAFF -->
+<section class="view" id="v-staff" aria-label="Staff desk">
+  <div class="wrap" style="max-width:1080px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <h1>Staff desk</h1>
+      <a class="iconbtn" href="#home" style="text-decoration:none">Setup</a>
+    </div>
+    <div class="card" id="pinCard">
+      <h2>Enter the staff PIN</h2>
+      <form class="pinrow" id="pinForm" autocomplete="off">
+        <label for="pin">Staff PIN<input id="pin" type="password" inputmode="numeric" required></label>
+        <button class="btn" type="submit">Open staff desk</button>
+      </form>
+      <p class="status err" id="pinMsg" aria-live="polite"></p>
+    </div>
+    <div id="staffBody" style="display:none;flex-direction:column;gap:22px">
+      <div class="card">
+        <h2>Latest candidates</h2>
+        <p class="muted" style="margin:0">Newest first, up to 100. Follow up while they're still at the booth. Refreshes every few seconds.</p>
+        <div id="candTable" style="overflow-x:auto"></div>
+      </div>
+      <div class="card">
+        <h2>Open jobs</h2>
+        <p class="muted" style="margin:0">Upload the jobs Excel template (or a .csv of its Jobs sheet). Each upload replaces the current list.</p>
+        <form class="pinrow" id="jobsForm">
+          <label for="jobsFile">Jobs file<input id="jobsFile" type="file" accept=".xlsx,.csv" required></label>
+          <button class="btn" type="submit">Upload jobs</button>
+        </form>
+        <div id="jobsMsg" class="status" aria-live="polite"></div>
+        <div id="jobsTable" style="overflow-x:auto"></div>
+      </div>
+      <div class="card">
+        <h2>Answers so far</h2>
+        <div id="staffCounts" class="status"></div>
+        <div id="staffTable"></div>
+        <div><button class="btn ghost" id="exportBtn">Download all answers with contact details (.csv)</button> <span id="exportMsg" class="status"></span></div>
+      </div>
+      <div class="card">
+        <h2>Start fresh</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn ghost" id="clearBtn">Clear test entries</button>
+          <span id="clearConfirm" style="display:none;gap:10px;align-items:center;flex-wrap:wrap">
+            <span class="err">Hide every answer logged before now from the TV?</span>
+            <button class="btn danger" id="clearYes">Yes, clear</button>
+            <button class="btn ghost" id="clearNo">Cancel</button>
+          </span>
+          <button class="btn ghost" id="unclearBtn" style="display:none">Show older answers again</button>
+        </div>
+        <p class="muted" style="margin:0;font-size:.85em">Clearing hides older answers from the TV and starts the counts at zero. Nothing is deleted: the candidate list and the download always include every entry.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/questions.js"></script>
+<script>
+const PQ=window.PULSE_Q;
+const {SKILLS,EXP,ROLES,PAIN}=PQ;
+const LISTS={SKILLS,EXP,ROLES,PAIN};
+const FLOWS={};for(const k in PQ.FLOWS)FLOWS[k]=PQ.FLOWS[k].map(s=>({...s,opts:s.opts?LISTS[s.opts]:null}));
+
+/* ---------- Helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dayKey=ms=>{const d=new Date(ms);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const pct=(n,d)=>d?Math.round(n*100/d):0;
+const short=(list,id)=>{const x=list.find(x=>x.id===id);return x?(x.short||x.label):id};
+const arr=v=>Array.isArray(v)?v:(v?[v]:[]);
+function countBy(rows,key){const m={};rows.forEach(r=>{new Set(arr(r[key])).forEach(v=>{if(typeof v==="string")m[v]=(m[v]||0)+1})});return m}
+function topOf(m){return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]}
+const fmt=n=>Number(n||0).toLocaleString("en-IN");
+const qr=t=>"/api/qr?text="+encodeURIComponent(t);
+const joinUrl=()=>location.origin+"/#join";
+function ago(ms){const s=Math.max(0,(Date.now()-ms)/1000);if(s<60)return "just now";if(s<3600)return Math.floor(s/60)+" min ago";if(s<86400)return Math.floor(s/3600)+" hr ago";return new Date(ms).toLocaleDateString("en-IN",{day:"numeric",month:"short"})}
+
+/* ---------- State ---------- */
+let state="pending",responses=[],since=0,jobsActive=0,demo=false,view="home";
+
+/* ---------- Sample data (rehearsal only) ---------- */
+function rng(seed){return()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646}}
+function pick(r,w){const t=w.reduce((a,b)=>a+b,0);let x=r()*t;for(let i=0;i<w.length;i++){x-=w[i];if(x<=0)return i}return w.length-1}
+function pickN(r,list,w,n){const out=new Set();let g=0;while(out.size<n&&g++<50)out.add(list[pick(r,w)].id);return [...out]}
+let demoCache=null;
+function sampleData(){
+  if(demoCache)return demoCache;
+  const r=rng(42),now=Date.now(),out=[];
+  const d0=new Date(now);d0.setHours(0,0,0,0);const span=Math.max(60e3,Math.min(8*3600e3,now-d0.getTime()));
+  const haveW=[14,9,11,12,4,22,24,6,10,7,9,6],trainW=[38,14,9,13,7,4,6,2,2,3,2,3],needW=[30,20,16,18,14,9,8,5,5,4,3,2];
+  const names=["Priya S.","Arjun K.","Sneha R.","Rahul M.","Kavya N.","Imran A.","Divya P.","Karthik V.","Ananya I.","Vikram D."];
+  const jobs=[["GenAI Engineer","Example Labs"],["Cloud Engineer","Sample Systems"],["Graduate Engineer Trainee","Demo Tech"],["Data Analyst","Example Retail"],["Full-stack Developer","Sample Fintech"],["QA Automation Engineer","Demo Software"]];
+  for(let i=0;i<236;i++){
+    const at=now-Math.floor(r()*span);
+    if(r()<.72){const m=r()<.78?1+pick(r,[2,3,5]):0,j=jobs[pick(r,[3,2,3,2,2,1])];
+      out.push({t:"c",at,exp:EXP[pick(r,[30,22,24,14,10])].id,have:pickN(r,SKILLS,haveW,1+pick(r,[2,3,4])),train:r()<.7?SKILLS[pick(r,trainW)].id:undefined,matched:m,top:m?{title:j[0],company:j[1]}:null,name:r()<.45?names[pick(r,names.map(()=>1))]:null})}
+    else out.push({t:"h",at,roles:pickN(r,ROLES,[24,18,26,14,8,5,6,12,6],1+pick(r,[2,3,3])),need:pickN(r,SKILLS,needW,1+pick(r,[2,3,4])),pain:pickN(r,PAIN,[28,30,20,14,10,6,12],1+pick(r,[3,4]))});
+  }
+  out.sort((a,b)=>a.at-b.at);demoCache=out;return out;
+}
+function current(){return demo?sampleData():responses}
+function activeJobs(){return demo?64:jobsActive}
+
+/* ---------- Data polling ---------- */
+function note(msg){const n=$("#dbNote");if(!msg){n.style.display="none";return}n.textContent=msg;n.style.display="block"}
+let failCount=0;
+async function poll(){
+  try{
+    const r=await fetch("/api/data",{cache:"no-store"});if(!r.ok)throw new Error(r.status);
+    const d=await r.json();responses=d.responses||[];since=d.since||0;jobsActive=d.jobsActive||0;state="live";failCount=0;note("");
+  }catch(e){failCount++;if(failCount>=3){state="error";note("Can't reach the server. Check the Wi-Fi; the screen will catch up on its own.")}}
+  renderAll();
+}
+function schedulePoll(){poll().finally(()=>setTimeout(schedulePoll,view==="kiosk"?15000:4000))}
+
+/* ---------- Display ---------- */
+const EMPTY=`<div class="empty">Waiting for the first answer. Tap the tablet or scan the QR code below.</div>`;
+function bars(list,m,total,cls,limit=7,keepOrder=false){
+  if(!total)return EMPTY;
+  let entries=list.map(x=>({label:x.short||x.label,full:x.label,n:m[x.id]||0}));
+  if(!keepOrder)entries=entries.filter(e=>e.n>0).sort((a,b)=>b.n-a.n);
+  entries=entries.slice(0,limit);
+  if(!entries.some(e=>e.n))return EMPTY;
+  const max=Math.max(...entries.map(e=>e.n),1);
+  return entries.map(e=>`<div class="bar-row" title="${esc(e.full)}: ${e.n} of ${total}"><span class="l">${esc(e.label)}</span><div class="track"><div class="fill ${cls}" style="width:${(e.n/max*100).toFixed(1)}%"></div></div><span class="v">${pct(e.n,total)}%</span></div>`).join("");
+}
+function gapRows(C,H){const have=countBy(C,"have"),need=countBy(H,"need");return SKILLS.map(s=>({s,c:pct(have[s.id]||0,C.length),h:pct(need[s.id]||0,H.length)}))}
+function matchedCount(C){return C.filter(c=>(c.matched||0)>0).length}
+function insights(C,H){
+  const out=[],jobs=activeJobs(),m=matchedCount(C);
+  if(jobs&&m)out.push(`${fmt(m)} job seekers have matched to open jobs so far. Scan the QR code to find yours.`);
+  if(C.length){
+    const ec=countBy(C,"exp");if(ec.f)out.push(`${pct(ec.f,C.length)}% of job seekers at the booth are freshers.`);
+    const th=topOf(countBy(C,"have"));if(th)out.push(`Most common skill at the booth: ${short(SKILLS,th[0])}, shared by ${pct(th[1],C.length)}% of job seekers.`);
+    const tt=topOf(countBy(C,"train"));if(tt)out.push(`${pct(tt[1],C.length)}% of job seekers are training in ${short(SKILLS,tt[0])} right now.`);
+  }
+  if(H.length){
+    const tr=topOf(countBy(H,"roles"));if(tr)out.push(`${pct(tr[1],H.length)}% of HR leaders here are hiring ${short(ROLES,tr[0])}.`);
+    const tp=topOf(countBy(H,"pain"));if(tp)out.push(`HR leaders' #1 pain point: ${short(PAIN,tp[0]).toLowerCase()} (${pct(tp[1],H.length)}%).`);
+  }
+  if(C.length&&H.length){
+    const g=gapRows(C,H).sort((a,b)=>(b.h-b.c)-(a.h-a.c))[0];
+    if(g&&g.h>g.c)out.push(`Biggest skills gap: ${g.s.short}. ${g.h}% of HR leaders need it, ${g.c}% of job seekers have it.`);
+    const need=topOf(countBy(H,"need"));if(need){const n=C.filter(c=>c.train===need[0]).length;if(n)out.push(`${pct(n,C.length)}% of job seekers are training in ${short(SKILLS,need[0])}, the skill HR leaders find hardest to hire.`)}
+  }
+  out.push(jobs?`${fmt(jobs)} open jobs are waiting for a match. Tap the tablet or scan the QR code.`:"Tap the tablet or scan the QR code to add your answer.");
+  return out;
+}
+let tickList=["Tap the tablet or scan the QR code to find your matching job."],tickI=0;
+function renderDisplay(){
+  const R=current(),today=dayKey(Date.now()),jobs=activeJobs();
+  const C=R.filter(r=>r.t==="c"),H=R.filter(r=>r.t==="h"),M=matchedCount(C);
+  $("#kToday").textContent=fmt(R.filter(r=>dayKey(r.at)===today).length);
+  $("#kSeek").textContent=fmt(C.length);
+  $("#kHr").textContent=fmt(H.length);
+  $("#kMatch").innerHTML=jobs?`${fmt(M)}<small>${C.length?pct(M,C.length)+"%":""}</small>`:"–";
+  $("#kMatchLab").textContent=jobs?`Matched to ${fmt(jobs)} open jobs`:"Matched to open jobs";
+  $("#joinHead").textContent=jobs&&M?`${fmt(M)} matched. Find your job`:"Find your matching job";
+
+  const feed=C.filter(c=>c.matched>0&&c.top).slice(-3).reverse();
+  $("#tFeed").innerHTML=!jobs?`<div class="empty">Matches appear here once open jobs are loaded on the Staff desk.</div>`
+    :feed.length?`<ul class="feed">${feed.map(c=>`<li><span class="who2">${esc(c.name||"A job seeker")} <span class="muted" style="font-weight:400">· ${esc(short(EXP,c.exp))}</span></span><span class="ago">${ago(c.at)}</span><span class="jobt">matched <b>${esc(c.top.title)}</b> · ${esc(c.top.company)}${c.matched>1?` +${c.matched-1} more`:""}</span></li>`).join("")}</ul>`
+    :`<div class="empty">No matches yet. Be the first: tap the tablet or scan the QR code.</div>`;
+  $("#sFeed").textContent=jobs?`${fmt(M)} of ${fmt(C.length)} job seekers matched so far`:"Job seekers matched to open jobs, live";
+
+  $("#tHave").innerHTML=bars(SKILLS,countBy(C,"have"),C.length,"seek");
+  $("#sHave").textContent=`Share of ${fmt(C.length)} job seekers · up to 3 each`;
+  if(!C.length||!H.length)$("#tGap").innerHTML=`<div class="empty">Appears once both job seekers and HR leaders have answered.</div>`;
+  else{
+    const rows=gapRows(C,H).filter(x=>x.c||x.h).sort((a,b)=>(b.h-b.c)-(a.h-a.c)).slice(0,5),max=Math.max(...rows.map(x=>Math.max(x.c,x.h)),1);
+    $("#tGap").innerHTML=rows.map(x=>`<div class="pair"><span class="l">${esc(x.s.short)}</span>
+      <div class="mini" title="${esc(x.s.short)}: ${x.c}% of job seekers have it"><div class="track"><div class="fill seek" style="width:${x.c/max*100}%"></div></div><span>${x.c}%</span></div>
+      <div class="mini" title="${esc(x.s.short)}: ${x.h}% of HR leaders need it"><div class="track"><div class="fill hr" style="width:${x.h/max*100}%"></div></div><span>${x.h}%</span></div></div>`).join("");
+  }
+  $("#tExp").innerHTML=bars(EXP,countBy(C,"exp"),C.length,"gold",5,true);
+  $("#sExp").textContent=`${fmt(C.length)} job seekers by years of experience`;
+  $("#tRoles").innerHTML=bars(ROLES,countBy(H,"roles"),H.length,"hr");
+  $("#sRoles").textContent=`Share of ${fmt(H.length)} HR leaders · up to 3 each`;
+  $("#tPain").innerHTML=bars(PAIN,countBy(H,"pain"),H.length,"hr");
+  $("#sPain").textContent=`Share of ${fmt(H.length)} HR leaders · up to 2 each`;
+  tickList=insights(C,H);
+  requestAnimationFrame(fitTiles);
+}
+function fitTiles(){
+  document.querySelectorAll("#v-display .tile .body").forEach(b=>{
+    const over=()=>b.scrollHeight>b.clientHeight+1;
+    if(!over())return;
+    const rows=[...b.querySelectorAll(":scope > .bar-row, :scope > .pair, .feed > li, .lb > li")];
+    while(over()&&rows.length>2)rows.pop().remove();
+    if(over()){b.querySelectorAll(".hero, .divider").forEach(e=>e.remove())}
+    while(over()&&rows.length>1)rows.pop().remove();
+  });
+}
+window.addEventListener("resize",()=>{clearTimeout(window.__fitT);window.__fitT=setTimeout(()=>{if(typeof renderDisplay==="function")renderDisplay()},150)});
+
+setInterval(()=>{const el=$("#tick");if(view!=="display")return;el.style.opacity=0;setTimeout(()=>{tickI=(tickI+1)%tickList.length;el.textContent=tickList[tickI];el.style.opacity=1},500)},8000);
+setInterval(()=>{const c=$("#clock");if(c)c.textContent=new Date().toLocaleString("en-IN",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})},1000);
+
+/* ---------- Visitor flow (tablet + phone) ---------- */
+let kFlow=null,kStep=0,kAns={},kTimer=null,kSel=[],phone=false;
+function idle(ms){clearTimeout(kTimer);if(!phone)kTimer=setTimeout(kReset,ms||90000)}
+function stepsBar(){const flow=FLOWS[kFlow];$("#kSteps").innerHTML=flow.map((_,i)=>`<i class="${i<=kStep?"on":""}"></i>`).join("")}
+function kRender(){
+  const main=$("#kMain");
+  if(!kFlow){
+    $("#kSteps").innerHTML="";
+    const C=current().filter(r=>r.t==="c"),M=matchedCount(C),jobs=activeJobs();
+    const pill=jobs?`<span class="count-pill"><b>${fmt(M)}</b> job seekers matched to <b>${fmt(jobs)}</b> open jobs so far</span>`:"";
+    main.innerHTML=`${pill}<p class="lead">${jobs?"Find jobs that match your skills and experience in about a minute.":"Add your voice to the live screen in about a minute."}</p><h2>Are you hiring, or job hunting?</h2>
+      <div class="opts big2"><button class="opt seek" data-flow="c">I'm job hunting<small>See open jobs that match you</small></button><button class="opt hr" data-flow="h">I'm hiring<small>HR, TA and hiring managers</small></button></div>`;
+    return;
+  }
+  const flow=FLOWS[kFlow],q=flow[kStep];stepsBar();
+  if(q.type==="contact"){renderContact(q);return}
+  const full=q.multi>1&&kSel.length>=q.multi;
+  const last=kStep===flow.length-1;
+  const hint=q.multi>1?`Pick up to ${q.multi}${kSel.length?` · ${kSel.length} chosen`:""}, then tap ${last?"Submit":"Next"}`:(q.optional?"Tap one to continue, or skip":"Tap one to continue");
+  main.innerHTML=`<p class="lead">Step ${kStep+1} of ${flow.length}</p><h2>${esc(q.q)}</h2><p class="hint">${hint}</p>
+    <div class="opts">${q.opts.map(o=>{const sel=kSel.includes(o.id);return `<button class="opt${sel?" sel":""}" data-ans="${o.id}" aria-pressed="${sel}"${full&&!sel?" disabled":""}>${esc(o.label)}</button>`}).join("")}</div>
+    <div class="k-actions"><button class="linkbtn" id="kBack">Back</button><span style="display:flex;gap:10px">${q.optional?`<button class="btn ghost" id="kSkip">${esc(q.skip||"Skip")}</button>`:""}<button class="btn" id="kNext"${kSel.length?"":" disabled"}>${last?"Submit":"Next"}</button></span></div>`;
+}
+function renderContact(q){
+  const c=kAns.contact||{};const ac=phone?"":` autocomplete="off"`;
+  $("#kMain").innerHTML=`<p class="lead">Step 1 of ${FLOWS.c.length}</p><h2>${esc(q.q)}</h2>
+  <form class="cform" id="cForm" novalidate>
+    <label class="full" for="cName">Full name<input type="text" id="cName" maxlength="60" value="${esc(c.name||"")}"${phone?' autocomplete="name"':ac} autocapitalize="words" enterkeyhint="next"><span class="ferr" id="eName"></span></label>
+    <label for="cEmail">Email<input type="email" id="cEmail" maxlength="120" value="${esc(c.email||"")}"${phone?' autocomplete="email"':ac} inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="next"><span class="ferr" id="eEmail"></span></label>
+    <label for="cPhone">Mobile number<span class="phonebox"><span>+91</span><input type="tel" id="cPhone" maxlength="16" value="${esc(c.phone||"")}"${phone?' autocomplete="tel-national"':ac} inputmode="tel" placeholder="98450 12345" enterkeyhint="done"></span><span class="ferr" id="ePhone"></span></label>
+    <label class="check full"><input type="checkbox" id="cConsent"${c.consent?" checked":""}><span>I agree that Upcruit.ai can store these details and contact me about jobs that match my profile.</span></label>
+    <label class="check full"><input type="checkbox" id="cShow"${c.showName?" checked":""}><span>Show my first name on the booth screen when I get a match (optional).</span></label>
+  </form>
+  <div class="k-actions"><button class="linkbtn" id="kBack">Back</button><button class="btn" id="kNext">Next</button></div>`;
+  const f=$("#cForm");
+  const read=()=>({name:$("#cName").value,email:$("#cEmail").value,phone:$("#cPhone").value,consent:$("#cConsent").checked,showName:$("#cShow").checked});
+  f.addEventListener("input",()=>{kAns.contact=read();idle()});
+  f.addEventListener("change",()=>{kAns.contact=read();idle()});
+  f.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const order=["cName","cEmail","cPhone"],i=order.indexOf(e.target.id);if(i>=0&&i<2)$("#"+order[i+1]).focus();else contactNext()}});
+  if(!phone&&!c.name)setTimeout(()=>{try{$("#cName").focus()}catch(_){}},50);
+}
+function contactNext(){
+  const c=kAns.contact={name:$("#cName").value,email:$("#cEmail").value,phone:$("#cPhone").value,consent:$("#cConsent").checked,showName:$("#cShow").checked};
+  const errs={eName:PQ.normName(c.name)?"":"Please enter your name.",eEmail:PQ.normEmail(c.email)?"":"Please check your email address.",ePhone:PQ.normPhone(c.phone)?"":"Enter a 10-digit mobile number, or include your country code (e.g. +44…)."};
+  let first=null;
+  for(const [id,msg] of Object.entries(errs)){$("#"+id).textContent=msg;const inp=$("#c"+id.slice(1));inp.classList.toggle("bad",!!msg);if(msg&&!first)first=inp}
+  if(first){first.focus();return}
+  if(!c.consent){$("#ePhone").textContent="";$("#cConsent").focus();$("#cConsent").closest("label").style.color="#FFB199";return}
+  kStep++;kSel=arr(kAns[FLOWS.c[kStep].key]).slice();kRender();idle();window.scrollTo(0,0);
+}
+function kAdvance(skip){
+  const flow=FLOWS[kFlow],q=flow[kStep];
+  if(skip)delete kAns[q.key];else kAns[q.key]=q.multi>1?[...kSel]:kSel[0];
+  kStep++;
+  if(kStep>=flow.length){kSubmit();return}
+  kSel=arr(kAns[flow[kStep].key]).slice();kRender();idle();window.scrollTo(0,0);
+}
+function jobCard(j){
+  const exp=j.minExp==null?"":(j.maxExp!=null?`${j.minExp}–${j.maxExp} yrs`:(j.minExp===0?"Freshers welcome":`${j.minExp}+ yrs`));
+  const meta=[j.company,j.location,j.mode,exp,j.salary?`₹${j.salary} LPA`:""].filter(Boolean).map(esc).join(" · ");
+  return `<div class="job"><div><h3>${esc(j.title)}</h3><div class="meta">${meta}</div>${j.tools?`<div class="tools">${esc(j.tools)}</div>`:""}</div>
+    <div class="act"><img class="qr" src="${qr(j.link)}" alt="QR code to apply for ${esc(j.title)}"><a class="btn" href="${esc(j.link)}" target="_blank" rel="noopener">Apply</a></div></div>`;
+}
+let submitting=false;
+async function kSubmit(){
+  if(submitting)return;submitting=true;clearTimeout(kTimer);
+  const isC=kFlow==="c";
+  $("#kSteps").innerHTML="";$("#kMain").innerHTML=`<div class="thanks"><p class="big">${isC?"Finding your matches…":"Saving…"}</p></div>`;
+  const body={t:kFlow,...kAns};
+  if(isC)body.contact={...kAns.contact,consent:!!(kAns.contact&&kAns.contact.consent),showName:!!(kAns.contact&&kAns.contact.showName)};
+  let matches=[],err="",first="";
+  try{
+    const r=await fetch("/api/responses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)err=d.error||"That didn't save. Please try again.";else{matches=d.matches||[];first=d.firstName||""}
+  }catch(e){err="That didn't save. Check the Wi-Fi, then tap Start over."}
+  submitting=false;poll();
+  kAns={};kSel=[];/* clear personal details from this screen straight away */
+  const look=phone?"You're counted on the big screen at the Upcruit booth.":"Look up: you're counted on the big screen now.";
+  let html="";
+  if(err)html=`<div class="thanks"><p class="big">Sorry!</p><p class="lead err" style="margin-top:.6em">${esc(err)}</p><div class="k-actions" style="margin-top:1em"><span></span><button class="btn" id="kDone">Start over</button></div></div>`;
+  else if(!isC)html=`<div class="thanks"><p class="big">Thanks!</p><h2 style="margin-top:.4em">${esc(look)}</h2><p class="lead" style="margin-top:.8em">Ask our team for the 5-minute demo: share a real job description and watch Upcruit build your shortlist.</p></div>`;
+  else if(matches.length)html=`<div class="matchhead"><h2>${esc(first?first+", ":"")}<span style="color:var(--gold)">${matches.length}</span> ${matches.length===1?"job matches":"jobs match"} your profile</h2></div>
+    <p class="lead">${phone?"Tap Apply to open the job on Upcruit.ai.":"Scan a QR code with your phone to apply on Upcruit.ai."} We've also saved your details so our team can follow up.</p>
+    <div class="matches">${matches.map(jobCard).join("")}</div>
+    ${phone?"":`<div class="k-actions"><span class="muted" style="font-size:.75em">This screen clears itself in a minute.</span><button class="btn ghost" id="kDone">Done</button></div>`}`;
+  else if(activeJobs())html=`<div class="thanks"><p class="big">Thanks${first?", "+esc(first):""}!</p><h2 style="margin-top:.4em">No exact match in today's openings.</h2><p class="lead" style="margin-top:.8em">We've saved your details. Our team will reach out when a role that fits your skills and experience opens up. Talk to us at the booth too.</p></div>`;
+  else html=`<div class="thanks"><p class="big">Thanks${first?", "+esc(first):""}!</p><h2 style="margin-top:.4em">${esc(look)}</h2><p class="lead" style="margin-top:.8em">We've saved your details. Talk to our team about roles that match your skills.</p></div>`;
+  $("#kMain").innerHTML=html;
+  if(!phone)kTimer=setTimeout(kReset,err?20000:(matches.length?60000:10000));
+}
+function kReset(){clearTimeout(kTimer);kFlow=null;kStep=0;kAns={};kSel=[];kRender();window.scrollTo(0,0)}
+$("#kMain").addEventListener("click",e=>{
+  const id=e.target.id,f=e.target.closest("[data-flow]"),a=e.target.closest("[data-ans]");
+  if(id==="kDone"){kReset();return}
+  if(id==="kBack"){
+    if(kStep===0){kReset();return}
+    kStep--;const q=FLOWS[kFlow][kStep];kSel=arr(kAns[q.key]).slice();kRender();idle();return}
+  if(id==="kNext"){if(kFlow&&FLOWS[kFlow][kStep].type==="contact"){contactNext();return}if(kSel.length)kAdvance();return}
+  if(id==="kSkip"){kAdvance(true);return}
+  if(f){kFlow=f.dataset.flow;kStep=0;kAns={};kSel=[];kRender();idle();window.scrollTo(0,0);return}
+  if(a&&kFlow&&!a.disabled){
+    const q=FLOWS[kFlow][kStep],v=a.dataset.ans;
+    if(q.multi>1){kSel=kSel.includes(v)?kSel.filter(x=>x!==v):[...kSel,v].slice(0,q.multi);kRender();idle()}
+    else{kSel=[v];kAdvance()}
+  }
+});
+$("#kRestart").addEventListener("click",kReset);
+let kExitT=null;
+function kExitHide(){clearTimeout(kExitT);$("#kExitAsk").style.display="none";$("#kExit").style.display=phone?"none":""}
+$("#kExit").addEventListener("click",()=>{$("#kExit").style.display="none";$("#kExitAsk").style.display="inline-flex";clearTimeout(kExitT);kExitT=setTimeout(kExitHide,8000)});
+$("#kStay").addEventListener("click",kExitHide);
+
+/* ---------- Staff ---------- */
+let pin="";try{pin=sessionStorage.getItem("pulsePin")||""}catch(e){}
+let staffOk=false;
+async function api(path,opts={}){
+  const r=await fetch(path,{...opts,cache:"no-store",headers:{...(opts.headers||{}),"x-staff-pin":pin}});
+  const ct=r.headers.get("content-type")||"";
+  const body=ct.includes("json")?await r.json().catch(()=>({})):await r.blob();
+  if(!r.ok){const e=new Error((body&&body.error)||"Request failed");e.status=r.status;throw e}
+  return body;
+}
+async function staffOpen(){
+  try{await api("/api/staff/login",{method:"POST"});staffOk=true;$("#pinCard").style.display="none";$("#staffBody").style.display="flex";loadJobs();loadCands()}
+  catch(e){staffOk=false;$("#pinCard").style.display="";$("#staffBody").style.display="none";if(pin)$("#pinMsg").textContent=e.message;pin="";try{sessionStorage.removeItem("pulsePin")}catch(_){}}
+}
+$("#pinForm").addEventListener("submit",e=>{e.preventDefault();pin=$("#pin").value.trim();try{sessionStorage.setItem("pulsePin",pin)}catch(_){}$("#pinMsg").textContent="";staffOpen()});
+async function loadCands(){
+  if(!staffOk||view!=="staff")return;
+  try{const d=await api("/api/staff/candidates");const c=d.candidates||[];
+    $("#candTable").innerHTML=c.length?`<table><thead><tr><th>Time</th><th>Name</th><th>Email</th><th>Phone</th><th>Experience</th><th>Skills</th><th style="text-align:right">Matches</th></tr></thead><tbody>${c.map(x=>`<tr title="${esc(x.jobs)}"><td class="muted">${new Date(x.at).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</td><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td style="white-space:nowrap">${esc(x.phone)}</td><td>${esc(x.exp)}</td><td>${esc(x.skills)}</td><td class="n">${x.matched}</td></tr>`).join("")}</tbody></table>`
+      :`<p class="muted" style="margin:0">No candidates yet.</p>`;
+  }catch(e){if(e.status===401)staffOpen();else $("#candTable").textContent=e.message}
+}
+setInterval(loadCands,6000);
+async function loadJobs(){
+  try{
+    const d=await api("/api/staff/jobs");const jobs=d.jobs||[];
+    $("#jobsTable").innerHTML=jobs.length?`<p class="status" style="margin:0 0 8px">${jobs.filter(j=>j.active).length} active of ${jobs.length} jobs${d.fileName?` · from ${esc(d.fileName)}`:""}${d.updatedAt?` · uploaded ${new Date(d.updatedAt).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`:""}</p>
+      <table><thead><tr><th>Job ID</th><th>Title</th><th>Company</th><th>Skills</th><th>Experience</th><th>Fresher</th><th>Active</th></tr></thead><tbody>${jobs.map(j=>`<tr><td>${esc(j.id)}</td><td>${esc(j.title)}</td><td>${esc(j.company)}</td><td>${esc(j.skills.map(id=>short(SKILLS,id)).join(", "))}</td><td>${j.minExp==null?"":esc(j.minExp+(j.maxExp!=null?"–"+j.maxExp:"+")+" yrs")}</td><td>${j.fresher?"Yes":"No"}</td><td>${j.active?"Yes":"No"}</td></tr>`).join("")}</tbody></table>`
+      :`<p class="muted" style="margin:0">No jobs uploaded yet. Candidates still sign up; they'll see a thank-you screen without matches.</p>`;
+  }catch(e){$("#jobsTable").textContent=e.message}
+}
+$("#jobsForm").addEventListener("submit",async e=>{
+  e.preventDefault();const f=$("#jobsFile").files[0];if(!f)return;
+  const fd=new FormData();fd.append("file",f);$("#jobsMsg").textContent="Uploading…";
+  try{const d=await api("/api/staff/jobs",{method:"POST",body:fd});
+    $("#jobsMsg").innerHTML=`Loaded ${d.total} jobs (${d.active} active).`+(d.warnings&&d.warnings.length?`<ul class="warn">${d.warnings.slice(0,30).map(w=>`<li>${esc(w)}</li>`).join("")}</ul>`:"");
+    loadJobs();poll();}
+  catch(err){$("#jobsMsg").innerHTML=`<span class="err">${esc(err.message)}</span>`}
+});
+$("#exportBtn").addEventListener("click",async()=>{
+  $("#exportMsg").textContent="Preparing…";
+  try{const b=await api("/api/staff/export.csv");const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="hiring-pulse-answers-"+dayKey(Date.now())+".csv";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);$("#exportMsg").textContent=""}
+  catch(err){$("#exportMsg").textContent=err.message}
+});
+$("#clearBtn").addEventListener("click",()=>{$("#clearConfirm").style.display="inline-flex";$("#clearBtn").style.display="none"});
+$("#clearNo").addEventListener("click",()=>{$("#clearConfirm").style.display="none";$("#clearBtn").style.display=""});
+$("#clearYes").addEventListener("click",async()=>{$("#clearConfirm").style.display="none";$("#clearBtn").style.display="";try{await api("/api/staff/clear",{method:"POST"});poll()}catch(e){$("#staffCounts").textContent=e.message}});
+$("#unclearBtn").addEventListener("click",async()=>{try{await api("/api/staff/unclear",{method:"POST"});poll()}catch(e){$("#staffCounts").textContent=e.message}});
+function renderStaff(){
+  const R=current(),today=dayKey(Date.now());
+  const C=R.filter(r=>r.t==="c"),H=R.filter(r=>r.t==="h");
+  const st={pending:"Connecting…",error:"Can't reach the server.",live:"Connected."}[state];
+  $("#staffCounts").innerHTML=`${st} <b>${C.length}</b> job seekers (<b>${matchedCount(C)}</b> matched to jobs) · <b>${H.length}</b> HR leaders on the TV${since?` · counting since ${new Date(since).toLocaleString("en-IN",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`:""}.`;
+  $("#unclearBtn").style.display=since?"":"none";
+  const days=[...new Set(R.map(r=>dayKey(r.at)))].sort();
+  $("#staffTable").innerHTML=days.length?`<table><thead><tr><th>Day</th><th style="text-align:right">Job seekers</th><th style="text-align:right">Matched</th><th style="text-align:right">HR leaders</th><th style="text-align:right">Total</th></tr></thead><tbody>${days.map(d=>{const c=C.filter(r=>dayKey(r.at)===d),h=H.filter(r=>dayKey(r.at)===d).length;return `<tr><td>${d===today?"Today":new Date(d+"T00:00").toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}</td><td class="n">${c.length}</td><td class="n">${matchedCount(c)}</td><td class="n">${h}</td><td class="n">${c.length+h}</td></tr>`}).join("")}</tbody></table>`:"";
+  const hs=$("#homeStatus");if(hs)hs.textContent=state==="live"?`Connected. ${R.length} answers on the board · ${fmt(jobsActive)} active jobs loaded.`:st;
+}
+
+/* ---------- Full screen ---------- */
+document.addEventListener("click",e=>{if(!e.target.closest("[data-fs]"))return;
+  try{const p=document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();p&&p.catch&&p.catch(()=>{})}catch(err){}});
+
+/* ---------- Routing ---------- */
+function renderAll(){
+  if(view==="display")renderDisplay();
+  if(view==="staff"||view==="home")renderStaff();
+  if(view==="kiosk"&&!kFlow)kRender();
+}
+function route(){
+  const h=(location.hash||"").slice(1)||"home";
+  demo=h==="demo";phone=h==="join";
+  view={display:"display",demo:"display",kiosk:"kiosk",join:"kiosk",staff:"staff"}[h]||"home";
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+view));
+  $("#v-kiosk").classList.toggle("phone",phone);
+  $("#kFs").style.display=phone?"none":"";
+  $("#demoBanner").style.display=demo?"block":"none";
+  $("#dbNote").style.visibility=demo?"hidden":"visible";
+  if(view==="display")$("#joinQr").src=qr(joinUrl());
+  if(view==="kiosk"){kReset();kExitHide()}
+  if(view==="staff")staffOpen();
+  renderAll();
+}
+window.addEventListener("hashchange",route);
+route();
+schedulePoll();
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# Dependencies (npm workspaces install at the root)
+node_modules/
+
+# Local database and data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# Archives / build output
+*.zip
+dist/
+build/
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

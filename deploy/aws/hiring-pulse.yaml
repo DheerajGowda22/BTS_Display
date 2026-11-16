@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Upcruit Hiring Pulse - one EC2 server (Docker: app + Caddy for HTTPS), encrypted disk,
+  Elastic IP, daily EBS snapshots, no SSH (use Session Manager). Deploy with deploy/aws/deploy.sh.
+
+Parameters:
+  BundleBucket:
+    Type: String
+    Description: Private S3 bucket holding releases/current.zip (created by deploy.sh).
+  StaffPinParameter:
+    Type: String
+    Default: /hiring-pulse/staff-pin
+    Description: SSM Parameter Store SecureString holding the staff PIN (created by deploy.sh).
+  DomainName:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional, e.g. pulse.upcruit.ai. Point an A record at the output PublicIP.
+      Leave empty to use a free <ip>.sslip.io address with HTTPS.
+  InstanceType:
+    Type: String
+    Default: t3.small
+    AllowedValues: [t3.small, t3.medium, t3a.small, t3a.medium]
+  DiskSizeGiB:
+    Type: Number
+    Default: 20
+    MinValue: 10
+    MaxValue: 200
+  SnapshotRetentionDays:
+    Type: Number
+    Default: 14
+    MinValue: 1
+    MaxValue: 90
+    Description: Daily disk snapshots are kept this many days.
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, ""]]
+
+Resources:
+  # ---------- Network: default VPC, only web ports open ----------
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Hiring Pulse - HTTP/HTTPS only (no SSH; use Session Manager)
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0, Description: HTTP (redirects to HTTPS + certificate checks) }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIpv6: "::/0", Description: HTTP IPv6 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIpv6: "::/0", Description: HTTPS IPv6 }
+      Tags: [{ Key: Name, Value: hiring-pulse-web }]
+
+  PublicIp:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags: [{ Key: Name, Value: hiring-pulse }]
+
+  # ---------- Permissions for the server ----------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: ec2.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: hiring-pulse-read-release-and-pin
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${BundleBucket}/releases/*
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${StaffPinParameter}
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # ---------- The server ----------
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SecurityGroupIds: [!GetAtt WebSecurityGroup.GroupId]
+      MetadataOptions: { HttpTokens: required, HttpEndpoint: enabled }
+      PropagateTagsToVolumeOnCreation: true
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: !Ref DiskSizeGiB, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true }
+      Tags:
+        - { Key: Name, Value: hiring-pulse }
+        - { Key: Backup, Value: hiring-pulse }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euxo pipefail
+            exec > >(tee -a /var/log/hiring-pulse-setup.log) 2>&1
+
+            mkdir -p /opt/hiring-pulse
+            cat > /opt/hiring-pulse/settings.env <<'EOF'
+            AWS_REGION=${AWS::Region}
+            BUNDLE_BUCKET=${BundleBucket}
+            STAFF_PIN_PARAMETER=${StaffPinParameter}
+            SITE_DOMAIN=${DomainName}
+            PUBLIC_IP=${Ip}
+            EOF
+
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -y
+            apt-get install -y docker.io docker-compose-v2 unzip
+            systemctl enable --now docker
+            snap install aws-cli --classic || true
+
+            # Small swap file so Docker builds never run out of memory on small instances
+            if [ ! -f /swapfile ]; then fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi
+
+            # update.sh: fetch the current release from S3 and (re)start. Also run by deploy.sh for updates.
+            cat > /opt/hiring-pulse/update.sh <<'SCRIPT'
+            #!/bin/bash
+            set -euo pipefail
+            source /opt/hiring-pulse/settings.env
+            AWS=/snap/bin/aws; [ -x "$AWS" ] || AWS=aws
+            cd /opt/hiring-pulse
+            $AWS s3 cp "s3://$BUNDLE_BUCKET/releases/current.zip" /tmp/hiring-pulse.zip --region "$AWS_REGION" --only-show-errors
+            rm -rf /tmp/hp-new && mkdir -p /tmp/hp-new && unzip -q /tmp/hiring-pulse.zip -d /tmp/hp-new
+            SRC=$(dirname "$(find /tmp/hp-new -maxdepth 3 -name Dockerfile -not -path '*/node_modules/*' | head -1)")
+            rm -rf /opt/hiring-pulse/app && mv "$SRC" /opt/hiring-pulse/app
+            PIN=$($AWS ssm get-parameter --name "$STAFF_PIN_PARAMETER" --with-decryption --query Parameter.Value --output text --region "$AWS_REGION")
+            if [ -n "$SITE_DOMAIN" ]; then SITE="$SITE_DOMAIN"; else SITE="$(echo "$PUBLIC_IP" | tr . -).sslip.io"; fi
+            umask 077
+            case "$PIN" in *"'"*) echo "Staff PIN must not contain a single quote (') - set a new one with NEW_PIN=1" >&2; exit 1;; esac
+            # single quotes: Docker Compose uses the PIN literally (no $ expansion)
+            printf "STAFF_PIN='%s'\nMAX_SUBMITS_PER_MIN=%s\n" "$PIN" "${!MAX_SUBMITS_PER_MIN:-300}" > /opt/hiring-pulse/app.env
+            printf 'SITE_ADDRESS=%s\n' "$SITE" > /opt/hiring-pulse/.env
+            umask 022
+            cp /opt/hiring-pulse/app/deploy/aws/compose.yaml /opt/hiring-pulse/compose.yaml
+            cp /opt/hiring-pulse/app/deploy/aws/Caddyfile /opt/hiring-pulse/Caddyfile
+            mkdir -p /srv/hiring-pulse/data && chown 1000:1000 /srv/hiring-pulse/data && chmod 700 /srv/hiring-pulse/data
+            docker compose -f /opt/hiring-pulse/compose.yaml --project-directory /opt/hiring-pulse up -d --build --remove-orphans
+            docker image prune -f >/dev/null 2>&1 || true
+            echo "Hiring Pulse is live at https://$SITE"
+            SCRIPT
+            chmod 750 /opt/hiring-pulse/update.sh
+
+            /opt/hiring-pulse/update.sh
+          - { Ip: !Ref PublicIp }
+
+  PublicIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt PublicIp.AllocationId
+      InstanceId: !Ref Server
+
+  # ---------- Daily encrypted snapshots of the disk (holds the database) ----------
+  SnapshotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: dlm.amazonaws.com }, Action: sts:AssumeRole }
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole
+
+  DailySnapshots:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: hiring-pulse daily disk snapshots
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt SnapshotRole.Arn
+      PolicyDetails:
+        PolicyType: EBS_SNAPSHOT_MANAGEMENT
+        ResourceTypes: [VOLUME]
+        TargetTags: [{ Key: Backup, Value: hiring-pulse }]
+        Schedules:
+          - Name: daily-2030-utc
+            CreateRule: { Interval: 24, IntervalUnit: HOURS, Times: ["20:30"] }
+            RetainRule: { Count: !Ref SnapshotRetentionDays }
+            CopyTags: true
+
+Outputs:
+  Url:
+    Description: Open this. Setup page with links to the TV, tablet, phone and staff views.
+    Value: !If
+      - HasDomain
+      - !Sub https://${DomainName}
+      - !Join ["", ["https://", !Join ["-", !Split [".", !Ref PublicIp]], ".sslip.io"]]
+  PublicIP:
+    Description: Point your domain's A record here if you use DomainName.
+    Value: !Ref PublicIp
+  InstanceId:
+    Value: !Ref Server
+  ConnectToServer:
+    Description: Shell access without SSH
+    Value: !Sub aws ssm start-session --target ${Server} --region ${AWS::Region}

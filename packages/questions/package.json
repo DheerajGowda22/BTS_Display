@@ -1,0 +1,7 @@
+{
+  "name": "@upcruit/questions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Question and answer options shared by the screens and the server",
+  "main": "questions.js"
+}

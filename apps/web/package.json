@@ -1,0 +1,6 @@
+{
+  "name": "@upcruit/web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static screens: setup, TV display, booth tablet, visitor phone, staff desk"
+}

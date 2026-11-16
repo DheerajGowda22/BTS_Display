@@ -1,0 +1,17 @@
+{
+  "name": "upcruit-hiring-pulse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live booth screen, visitor questions and job matching for Upcruit.ai at Bengaluru Tech Summit 2026",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "node apps/server/src/server.js",
+    "dev": "node --watch apps/server/src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
